@@ -3,14 +3,16 @@
 
 module Control.Auto.FRP.Core where
 
-import Control.Auto
+import Control.Auto as A
 import Prelude hiding ((.), id)
 import Data.String
 import Data.Profunctor
 import Control.Monad.Trans.Reader
 import Data.Typeable
 
-newtype Wire m a b = Wire { wireAuto :: Auto (ReaderT Double m) a b
+type Time = Double
+
+newtype Wire m a b = Wire { wireAuto :: Auto (ReaderT Time m) a b
                           } deriving ( Functor
                                      , Applicative
                                      , Category
@@ -31,11 +33,18 @@ newtype Wire m a b = Wire { wireAuto :: Auto (ReaderT Double m) a b
                                      , Typeable
                                      )
 
+type Wire' = Wire Identity
+
+type IntervalW m a b = Wire m a (Maybe b)
+
+type IntervalW' a b = IntervalW Identity a b
+
+type Event = Blip
 
 
 integral :: Monad m => Double -> Wire m Double Double
-integral = Wire . mkStateM (\dx x0 -> do dt <- ask
-                                         return (x0, x0 + dx * dt)
+integral = Wire . mkStateM (\dx y0 -> do dt <- ask
+                                         return (y0, y0 + dx * dt)
                            )
 
 derivative :: Monad m => Wire m Double Double
@@ -46,9 +55,51 @@ derivative = Wire $ mkStateM f Nothing
       dt <- ask
       return ((x - x')/dt, Just x)
 
-time :: Monad m => Wire m a Double
+time :: Monad m => Wire m a Time
 time = integral 0 . pure 1
 
+integralRK4 :: Monad m
+            => Double
+            -> Wire m Double Double
+integralRK4 y0 = Wire (mkStateM f (y0,0,0,0))
+  where
+    f x (y,x0,x1,x2) = do
+      dt <- ask
+      let k1 = x0
+          k2 = x1
+          k3 = x1
+          k4 = x2
+          y' = y + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+      return (y, (y',x1,x2,x))
 
+-- integral2 :: Monad m => Wire m a Double
+
+overWire :: ( Auto (ReaderT Time m) a0 b0 -> Auto (ReaderT Time m) a1 b1)
+         -> Wire m a0 b0 -> Wire m a1 b1
+overWire f (Wire a) = Wire (f a)
+
+overWire2 :: ( Auto (ReaderT Time m) a0 b0
+            -> Auto (ReaderT Time m) a1 b1
+            -> Auto (ReaderT Time m) a2 b2 )
+          -> Wire m a0 b0
+          -> Wire m a1 b1
+          -> Wire m a2 b2
+overWire2 f (Wire a1) (Wire a2) = Wire (f a1 a2)
+
+overWire3 :: ( Auto (ReaderT Time m) a0 b0
+            -> Auto (ReaderT Time m) a1 b1
+            -> Auto (ReaderT Time m) a2 b2
+            -> Auto (ReaderT Time m) a3 b3 )
+          -> Wire m a0 b0
+          -> Wire m a1 b1
+          -> Wire m a2 b2
+          -> Wire m a3 b3
+overWire3 f (Wire a1) (Wire a2) (Wire a3) = Wire (f a1 a2 a3)
+
+(-->) :: Monad m => IntervalW m a b -> Wire m a b -> Wire m a b
+(-->) = overWire2 (A.-->)
+
+(-?>) :: Monad m => IntervalW m a b -> IntervalW m a b -> IntervalW m a b
+(-?>) = overWire2 (A.-?>)
 
 
