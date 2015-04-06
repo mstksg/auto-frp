@@ -11,6 +11,11 @@ import Data.List
 import Data.Serialize
 import Prelude hiding                         ((.), id)
 
+infixr 5 `mergeL`
+infixr 5 <&
+infixl 5 `mergeR`
+infixl 5 &>
+
 never :: Wire m a (Event b)
 never = Wire A.never
 

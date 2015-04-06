@@ -23,6 +23,8 @@ library
                      , Control.Auto.FRP.Core
                      , Control.Auto.FRP.Interval
                      , Control.Auto.FRP.Event
+                     , Control.Auto.FRP.Switch
+                     , Control.Auto.FRP.Process
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
@@ -31,4 +33,5 @@ library
                      , profunctors
                      , cereal
   hs-source-dirs:      src
+  ghc-options:         -Wall
   default-language:    Haskell2010

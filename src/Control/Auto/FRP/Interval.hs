@@ -9,6 +9,11 @@ import Data.Serialize
 import Prelude hiding                         ((.), id)
 import qualified Control.Auto.Interval        as A
 
+infixr 3 <|?>
+infixr 3 <|!>
+infixr 1 `compI`
+
+
 off :: Interval m a b
 off = Wire A.off
 
