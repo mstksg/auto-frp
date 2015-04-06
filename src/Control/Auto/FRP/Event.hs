@@ -6,7 +6,6 @@ import Control.Auto               as A hiding (Interval)
 import Control.Auto.Blip                      as A
 import Control.Auto.Blip.Internal             as A
 import Control.Auto.FRP.Core
-import Control.Monad.Trans.Reader
 import Data.List
 import Data.Serialize
 import Prelude hiding                         ((.), id)
@@ -23,34 +22,34 @@ immediately :: Wire m b (Event b)
 immediately = Wire A.immediately
 
 inE :: Monad m => Time -> Wire m a (Event a)
-inE = Wire . mkStateM f . Just
+inE = mkStatedT f . Just
   where
-    f _ Nothing              = return (NoBlip, Nothing)
-    f x (Just t) | t <= 0    = return (Blip x, Nothing)
-                 | otherwise = asks $ \dt -> (NoBlip, Just (t - dt))
+    f _ Nothing  _              = (NoBlip, Nothing)
+    f x (Just t) dt | t <= 0    = (Blip x, Nothing)
+                    | otherwise = (NoBlip, Just (t - dt))
 
 every :: Monad m => Time -> Wire m a (Event a)
-every (max 0 -> per) = Wire $ mkStateM f per
+every (max 0 -> per) = mkStatedT f per
   where
-    f x t | t <= 0    = return (Blip x, per)
-          | otherwise = asks $ \dt -> (NoBlip, t - dt)
+    f x t dt | t <= 0    = (Blip x, per)
+             | otherwise = (NoBlip, t - dt)
 
 eachAt :: (Monad m, Serialize b) => Time -> [b] -> Wire m a (Event b)
-eachAt (max 0 -> per) xs = Wire $ mkStateM (\_ -> _eachAtF per) (per, xs)
+eachAt (max 0 -> per) xs = mkStatedT (\_ -> _eachAtF per) (per, xs)
 
 eachAt_ :: Monad m => Time -> [b] -> Wire m a (Event b)
-eachAt_ (max 0 -> per) xs = Wire $ mkStateM_ (\_ -> _eachAtF per) (per, xs)
+eachAt_ (max 0 -> per) xs = mkStatedT_ (\_ -> _eachAtF per) (per, xs)
 
-_eachAtF :: Monad m
-         => Time
+_eachAtF :: Time
          -> (Time, [b])
-         -> ReaderT Time m (Event b, (Time, [b]))
+         -> Time
+         -> (Event b, (Time, [b]))
 _eachAtF per = f
   where
-    f (t, xs) = case xs of
-                  []   -> return (NoBlip, (0, xs))
-                  y:ys | t <= 0    -> return (Blip y, (per, ys))
-                       | otherwise -> asks $ \dt -> (NoBlip, (per - dt, xs))
+    f (t, xs) dt = case xs of
+                     []               -> (NoBlip, (0       , xs))
+                     y:ys | t <= 0    -> (Blip y, (per     , ys))
+                          | otherwise -> (NoBlip, (per - dt, xs))
 
 holdWith :: Serialize a => a -> Wire m (Event a) a
 holdWith = Wire . A.holdWith
@@ -187,8 +186,8 @@ onFlip_ = Wire . A.onFlip_
 onFlip' :: Monad m => (a -> Bool) -> Wire m a (Event Bool)
 onFlip' = Wire . A.onFlip'
 
-iterateE :: Serialize a => a -> Wire m (Event (a -> a)) (Event a)
-iterateE = Wire . iterateB
+-- iterateE :: Serialize a => a -> Wire m (Event (a -> a)) (Event a)
+-- iterateE = Wire . iterateB
 
-iterateE_ :: a -> Wire m (Event (a -> a)) (Event a)
-iterateE_ = Wire . iterateB_
+-- iterateE_ :: a -> Wire m (Event (a -> a)) (Event a)
+-- iterateE_ = Wire . iterateB_

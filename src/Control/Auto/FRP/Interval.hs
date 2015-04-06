@@ -4,7 +4,6 @@ import Control.Auto               as A hiding (Interval)
 import Control.Auto.Blip.Internal
 import Control.Auto.FRP.Core
 import Control.Auto.Interval      as A hiding (Interval, (<|?>), (<|!>))
-import Control.Monad.Trans.Reader
 import Data.Serialize
 import Prelude hiding                         ((.), id)
 import qualified Control.Auto.Interval        as A
@@ -21,24 +20,24 @@ toOn :: Interval m a a
 toOn = Wire A.toOn
 
 onFor :: Monad m => Time -> Interval m a a
-onFor = Wire . mkStateM f . Just . max 0
+onFor = mkStatedT f . Just . max 0
   where
-    f x (Just t) | t > 0 = asks $ \dt -> (Just x, Just (t - dt))
-    f _ _        = return (Nothing, Nothing)
+    f x (Just t) dt | t > 0 = (Just x , Just (t - dt))
+    f _ _        _          = (Nothing, Nothing      )
 
 offFor :: Monad m => Time -> Interval m a a
-offFor = Wire . mkStateM f . Just . max 0
+offFor = mkStatedT f . Just . max 0
   where
-    f _ (Just t) | t > 0 = asks $ \dt -> (Nothing, Just (t - dt))
-    f x _        = return (Just x, Nothing)
+    f _ (Just t) dt | t > 0 = (Nothing, Just (t - dt))
+    f x _        _          = (Just x , Nothing      )
 
 window :: Monad m => Time -> Time -> Interval m a a
-window b e = Wire $ mkStateM f (Just 0)
+window b e = mkStatedT f (Just 0)
   where
-    f _ Nothing              = return (Nothing, Nothing)
-    f x (Just t) | t > e     = return (Nothing, Nothing)
-                 | t < b     = asks $ \dt -> (Nothing, Just (t + dt))
-                 | otherwise = asks $ \dt -> (Just x, Just (t + dt))
+    f _ Nothing  _              = (Nothing, Nothing      )
+    f x (Just t) dt | t > e     = (Nothing, Nothing      )
+                    | t < b     = (Nothing, Just (t + dt))
+                    | otherwise = (Just x , Just (t + dt))
 
 after :: Interval m (a, Event b) a
 after = Wire A.after
@@ -56,23 +55,24 @@ hold_ :: Interval m (Event a) a
 hold_ = Wire A.hold_
 
 holdFor :: (Serialize a, Monad m) => Time -> Interval m (Event a) a
-holdFor t = Wire $ mkStateM (_holdForF (max 0 t)) (Nothing, Nothing)
+holdFor t = mkStatedT (_holdForF (max 0 t)) (Nothing, Nothing)
 
 holdFor_ :: Monad m => Time -> Interval m (Event a) a
-holdFor_ t = Wire $ mkStateM_ (_holdForF (max 0 t)) (Nothing, Nothing)
+holdFor_ t = mkStatedT_ (_holdForF (max 0 t)) (Nothing, Nothing)
 
-_holdForF :: Monad m
-          => Time
+_holdForF :: Time
           -> Event a
           -> (Maybe a, Maybe Time)
-          -> ReaderT Time m (Maybe a, (Maybe a, Maybe Time))
+          -> Time
+          -> (Maybe a, (Maybe a, Maybe Time))
 _holdForF dur = f
   where
-    f x s = asks $ \dt -> let (y, t) = case (x, s) of
-                                         (Blip b, _)      -> (Just b , Just dur)
-                                         (_, (z, Just j)) | j > 0 -> (z, Just (j - dt))
-                                         _                -> (Nothing, Nothing )
-                          in  (y, (y, t))
+    f x s dt = (y, (y, t))
+      where
+        (y, t) = case (x, s) of
+                   (Blip b, _)              -> (Just b , Just dur     )
+                   (_, (z, Just j)) | j > 0 -> (z      , Just (j - dt))
+                   _                        -> (Nothing, Nothing      )
 
 holdJusts :: Serialize a => Interval m (Maybe a) a
 holdJusts = Wire A.holdJusts

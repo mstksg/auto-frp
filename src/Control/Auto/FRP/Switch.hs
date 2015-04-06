@@ -6,6 +6,8 @@ import Data.Serialize
 import Control.Auto.Switch as A
 import Prelude hiding                    ((.), id)
 
+-- TODO: add delays
+
 infixr 1 -->
 infixr 1 -?>
 

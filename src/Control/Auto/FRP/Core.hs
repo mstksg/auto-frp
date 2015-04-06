@@ -11,6 +11,16 @@ module Control.Auto.FRP.Core (
   , Event
   , runWire
   , sealWire
+  , arrdT
+  , arrdTM
+  , accumdT
+  , accumdT_
+  , accumdTM
+  , accumdTM_
+  , mkStatedT
+  , mkStatedT_
+  , mkStatedTM
+  , mkStatedTM_
   , overWire
   , overWire2
   , overWire3
@@ -21,14 +31,15 @@ module Control.Auto.FRP.Core (
   ) where
 
 import Control.Auto as A hiding   (Interval, Interval', delay, delay_)
+import Control.Auto.Effects
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
 import Data.Profunctor
 import Data.Serialize
-import Control.Auto.Effects
-import qualified Control.Auto as A
 import Data.String
 import Data.Typeable
 import Prelude hiding             ((.), id)
+import qualified Control.Auto     as A
 
 type Time = Double
 
@@ -66,6 +77,36 @@ runWire (Wire a) = runReaderA a
 
 sealWire :: Monad m => Wire m a b -> Time -> Auto m a b
 sealWire (Wire a) = sealReader a
+
+arrdT :: Monad m => (a -> Time -> b) -> Wire m a b
+arrdT f = Wire $ arrM (asks . f)
+
+arrdTM :: Monad m => (a -> Time -> m b) -> Wire m a b
+arrdTM f = Wire . arrM $ \x -> lift . f x =<< ask
+
+accumdT :: (Serialize b, Monad m) => (b -> a -> Time -> b) -> b -> Wire m a b
+accumdT f = Wire . accumM (\s -> asks . f s)
+
+accumdT_ :: Monad m => (b -> a -> Time -> b) -> b -> Wire m a b
+accumdT_ f = Wire . accumM_ (\s -> asks . f s)
+
+accumdTM :: (Serialize b, Monad m) => (b -> a -> Time -> m b) -> b -> Wire m a b
+accumdTM f = Wire . accumM (\s x -> lift . f s x =<< ask)
+
+accumdTM_ :: Monad m => (b -> a -> Time -> m b) -> b -> Wire m a b
+accumdTM_ f = Wire . accumM_ (\s x -> lift . f s x =<< ask)
+
+mkStatedT :: (Serialize s, Monad m) => (a -> s -> Time -> (b, s)) -> s -> Wire m a b
+mkStatedT f = Wire . mkStateM (\x -> asks . f x)
+
+mkStatedT_ :: Monad m => (a -> s -> Time -> (b, s)) -> s -> Wire m a b
+mkStatedT_ f = Wire . mkStateM_ (\x -> asks . f x)
+
+mkStatedTM :: (Serialize s, Monad m) => (a -> s -> Time -> m (b, s)) -> s -> Wire m a b
+mkStatedTM f = Wire . mkStateM (\x s -> lift . f x s =<< ask)
+
+mkStatedTM_ :: Monad m => (a -> s -> Time -> m (b, s)) -> s -> Wire m a b
+mkStatedTM_ f = Wire . mkStateM_ (\x s -> lift . f x s =<< ask)
 
 
 overWire :: ( Auto (ReaderT Time m) a0 b0 -> Auto (ReaderT Time m) a1 b1)
