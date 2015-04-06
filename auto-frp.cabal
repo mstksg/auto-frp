@@ -21,10 +21,12 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Control.Auto.FRP
                      , Control.Auto.FRP.Core
-                     , Control.Auto.FRP.Interval
+                     , Control.Auto.FRP.Effects
                      , Control.Auto.FRP.Event
-                     , Control.Auto.FRP.Switch
+                     , Control.Auto.FRP.Interval
                      , Control.Auto.FRP.Process
+                     , Control.Auto.FRP.Switch
+                     , Control.Auto.FRP.Time
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
